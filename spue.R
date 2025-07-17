@@ -13,87 +13,93 @@ library(googledrive)
 curr_dir <- dirname(rstudioapi::getSourceEditorContext()$path)
 setwd(curr_dir)
 
+fn = '2000-2024 NEFSC Data.csv'
+
 ## inputs
 #years
 begYEAR = 2010
 endYEAR = 2020
 
 #months
-begMONTH = 8
-endMONTH = 9
+begMONTH = 1
+endMONTH = 12
 
 #season
-ssn_beg=rbind(c(8,1))
-ssn_end=rbind(c(9,30))
+ssn_beg=rbind(c(1,1), c(2,1), c(3,1), c(4,1), c(5,1), c(6,1), c(7,1), c(8,1), c(9,1), c(10,1), c(11,1), c(12,1))
+ssn_end=rbind(c(1,31), c(2,29), c(3,31), c(4,30), c(5,31), c(6,30), c(7,31), c(8,30), c(9,30), c(10,31), c(11,30), c(12,31) )
 
 # if necessary, download the data
-#file_loc = "~/Documents/WorkDocuments/Projects/Fundy/Dan & Kelsey All FUNDY data 05-19-2023.CSV"
-file_loc = paste0(curr_dir, "/data/", "Copy of Dan & Kelsey All FUNDY data 05-19-2023.CSV")
-if (!file.exists(file_loc)){ #if file already exists, this statement will not be 
-  
-  is_googledrive_available <- require("googledrive") #logial variable indicating if the package is installed
-  
-  # install googledrive if necessary
-  if (is_googledrive_available == FALSE){
-    install.packages("googledrive")
-  }
-  
-  #download the file
-  library("googledrive")
-  setwd(paste0(curr_dir, "/data/"))
-  drive_download("Copy of Dan & Kelsey All FUNDY data 05-19-2023.CSV")
-  setwd(curr_dir)  
-}
+file_loc = paste0(curr_dir, "/data/", fn)
+# if (!file.exists(file_loc)){ #if file already exists, this statement will not be 
+#   
+#   is_googledrive_available <- require("googledrive") #logial variable indicating if the package is installed
+#   
+#   # install googledrive if necessary
+#   if (is_googledrive_available == FALSE){
+#     install.packages("googledrive")
+#   }
+#   
+#   #download the file
+#   library("googledrive")
+#   setwd(paste0(curr_dir, "/data/"))
+#   drive_download("Copy of Dan & Kelsey All FUNDY data 05-19-2023.CSV")
+#   setwd(curr_dir)  
+# }
 
-## import data
-dat <- read_csv(file = file_loc, 
-                col_types = cols(FILEID = col_character(),
-                                 EVENTNO = col_double(),
-                                 MONTH = col_double(),
-                                 DAY = col_double(),
-                                 YEAR = col_double(),
-                                 GMT = col_double(),
-                                 LATITUDE = col_double(),
-                                 LONGITUDE = col_double(),
-                                 LEGTYPE = col_double(),
-                                 LEGSTAGE = col_double(),
-                                 ALT = col_double(),
-                                 HEADING = col_double(),
-                                 WX = col_character(),
-                                 CLOUD = col_double(),
-                                 VISIBLTY = col_double(),
-                                 BEAUFORT = col_double(),
-                                 SPECCODE = col_character(),
-                                 IDREL = col_double(),
-                                 NUMBER = col_double(),
-                                 CONFIDNC = col_double())
-)
+dat <- read_csv(file = file_loc)
 
-#restrict to R/V Nereid
-dat <- dat %>%
-  filter(PLATFORM == 99)
+# ## import data
+# dat <- read_csv(file = file_loc, 
+#                 col_types = cols(FILEID = col_character(),
+#                                  EVENTNO = col_double(),
+#                                  MONTH = col_double(),
+#                                  DAY = col_double(),
+#                                  YEAR = col_double(),
+#                                  GMT = col_double(),
+#                                  LATITUDE = col_double(),
+#                                  LONGITUDE = col_double(),
+#                                  LEGTYPE = col_double(),
+#                                  LEGSTAGE = col_double(),
+#                                  ALT = col_double(),
+#                                  HEADING = col_double(),
+#                                  WX = col_character(),
+#                                  CLOUD = col_double(),
+#                                  VISIBLTY = col_double(),
+#                                  BEAUFORT = col_double(),
+#                                  SPECCODE = col_character(),
+#                                  IDREL = col_double(),
+#                                  NUMBER = col_double(),
+#                                  CONFIDNC = col_double())
+# )
 
-# discard opportunistic surveys
-dat <- dat %>%
-  mutate(fileid = str_sub(FILEID, start = 1, end = 1)) %>% 
-  filter(fileid == "P" | fileid == "p") %>%
-  dplyr::select(-fileid)
+# #restrict to R/V Nereid
+# dat <- dat %>%
+#   filter(PLATFORM == 99)
 
-dat$date_ymd_gmt <- as.Date(with(dat,paste(YEAR,MONTH,DAY,sep="-")),"%Y-%m-%d")
-source('padstr0.R')
-GMT_strings = padstr0(dat$GMT,6) #pad GMT times so they have 6 digits
-#correct instances where "200000" was stored as "02e+05"
-GMT_strings[which(GMT_strings == "02e+05")] = "200000"
-GMT_strings = paste(dat$date_ymd_gmt, GMT_strings) #append ymd to hms
-dat$datetime_GMT = ymd_hms(GMT_strings, tz = 'GMT') #convert
-dat$datetime_ET = with_tz(dat$datetime_GMT, "US/Eastern")
-dat$date_jday_ET = format(dat$datetime_ET,"%j") #calculate jday based on US/Eastern time
-rm(GMT_strings)
+# # discard opportunistic surveys
+# dat <- dat %>%
+#   mutate(fileid = str_sub(FILEID, start = 1, end = 1)) %>% 
+#   filter(fileid == "P" | fileid == "p") %>%
+#   dplyr::select(-fileid)
+
+
+dat$datetime_et <- dmy_hms(dat$DATETIME_ET, tz = 'EST5EDT')
+
+# #dat$date_ymd_gmt <- as.Date(with(dat,paste(YEAR,MONTH,DAY,sep="-")),"%Y-%m-%d")
+# source('padstr0.R')
+# GMT_strings = padstr0(dat$GMT,6) #pad GMT times so they have 6 digits
+# #correct instances where "200000" was stored as "02e+05"
+# GMT_strings[which(GMT_strings == "02e+05")] = "200000"
+# GMT_strings = paste(dat$date_ymd_gmt, GMT_strings) #append ymd to hms
+# dat$datetime_GMT = ymd_hms(GMT_strings, tz = 'GMT') #convert
+# dat$datetime_ET = with_tz(dat$datetime_GMT, "US/Eastern")
+# dat$date_jday_ET = format(dat$datetime_ET,"%j") #calculate jday based on US/Eastern time
+# rm(GMT_strings)
 
 #create Year Month Day columns based on US/Eastern tz
-dat$YEAR_ET <- as.numeric(format(dat$datetime_ET,"%Y"))
-dat$MONTH_ET <- as.numeric(format(dat$datetime_ET,"%m"))
-dat$DAY_ET <- as.numeric(format(dat$datetime_ET,"%d"))
+dat$YEAR_ET <- as.numeric(format(dat$datetime_et,"%Y"))
+dat$MONTH_ET <- as.numeric(format(dat$datetime_et,"%m"))
+dat$DAY_ET <- as.numeric(format(dat$datetime_et,"%d"))
 
 # keep only desired years and months (based on US/Eastern tz)
 dat <- dat %>%
@@ -113,7 +119,7 @@ ssn_no_grpd = season$SSN_GRPD_NO
 dat$season = NA
 dat$season_grpd = NA
 for (i in 1:length(ssn_beg_date)){
-  I = which(dat$datetime_ET >= ssn_beg_date[i] & dat$datetime_ET <= ssn_end_date[i])
+  I = which(dat$datetime_et >= ssn_beg_date[i] & dat$datetime_et <= ssn_end_date[i])
   dat$season[I] = ssn_no[i]
   dat$season_grpd[I] = ssn_no_grpd[i]
 }
@@ -148,7 +154,7 @@ keep.cols <- c("FILEID",
                "LEGTYPE", "LEGSTAGE", 
                "LATITUDE", "LONGITUDE", 
                "SPECCODE", "IDREL", "NUMBER", 
-               "datetime_ET", "date_jday_ET", 
+               "datetime_et", "date_jday_ET", 
                "on.off.eff", 
                "season", "season_grpd",
                "on.effort.id")
