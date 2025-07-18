@@ -1,171 +1,5 @@
-rm(list = ls())
-
-## LOAD LIBRARIES
-library(tidyverse)
-library(sf)
-library(dplyr)
-library(webshot) #needed to save maps. on new systems, may have to do: webshot::install_phantomjs()
-library(mapview) #needed to make maps
-library(tmap)
-library(googledrive)
-
-#find current directory, setwd to current directory
-curr_dir <- dirname(rstudioapi::getSourceEditorContext()$path)
-setwd(curr_dir)
-
-fn = '2000-2024 NEFSC Data.csv'
-
-## inputs
-#years
-begYEAR = 2010
-endYEAR = 2020
-
-#months
-begMONTH = 1
-endMONTH = 12
-
-#season
-ssn_beg=rbind(c(1,1), c(2,1), c(3,1), c(4,1), c(5,1), c(6,1), c(7,1), c(8,1), c(9,1), c(10,1), c(11,1), c(12,1))
-ssn_end=rbind(c(1,31), c(2,29), c(3,31), c(4,30), c(5,31), c(6,30), c(7,31), c(8,30), c(9,30), c(10,31), c(11,30), c(12,31) )
-
-# if necessary, download the data
-file_loc = paste0(curr_dir, "/data/", fn)
-# if (!file.exists(file_loc)){ #if file already exists, this statement will not be 
-#   
-#   is_googledrive_available <- require("googledrive") #logial variable indicating if the package is installed
-#   
-#   # install googledrive if necessary
-#   if (is_googledrive_available == FALSE){
-#     install.packages("googledrive")
-#   }
-#   
-#   #download the file
-#   library("googledrive")
-#   setwd(paste0(curr_dir, "/data/"))
-#   drive_download("Copy of Dan & Kelsey All FUNDY data 05-19-2023.CSV")
-#   setwd(curr_dir)  
-# }
-
-dat <- read_csv(file = file_loc)
-
-# ## import data
-# dat <- read_csv(file = file_loc, 
-#                 col_types = cols(FILEID = col_character(),
-#                                  EVENTNO = col_double(),
-#                                  MONTH = col_double(),
-#                                  DAY = col_double(),
-#                                  YEAR = col_double(),
-#                                  GMT = col_double(),
-#                                  LATITUDE = col_double(),
-#                                  LONGITUDE = col_double(),
-#                                  LEGTYPE = col_double(),
-#                                  LEGSTAGE = col_double(),
-#                                  ALT = col_double(),
-#                                  HEADING = col_double(),
-#                                  WX = col_character(),
-#                                  CLOUD = col_double(),
-#                                  VISIBLTY = col_double(),
-#                                  BEAUFORT = col_double(),
-#                                  SPECCODE = col_character(),
-#                                  IDREL = col_double(),
-#                                  NUMBER = col_double(),
-#                                  CONFIDNC = col_double())
-# )
-
-# #restrict to R/V Nereid
-# dat <- dat %>%
-#   filter(PLATFORM == 99)
-
-# # discard opportunistic surveys
-# dat <- dat %>%
-#   mutate(fileid = str_sub(FILEID, start = 1, end = 1)) %>% 
-#   filter(fileid == "P" | fileid == "p") %>%
-#   dplyr::select(-fileid)
 
 
-dat$datetime_et <- dmy_hms(dat$DATETIME_ET, tz = 'EST5EDT')
-
-# #dat$date_ymd_gmt <- as.Date(with(dat,paste(YEAR,MONTH,DAY,sep="-")),"%Y-%m-%d")
-# source('padstr0.R')
-# GMT_strings = padstr0(dat$GMT,6) #pad GMT times so they have 6 digits
-# #correct instances where "200000" was stored as "02e+05"
-# GMT_strings[which(GMT_strings == "02e+05")] = "200000"
-# GMT_strings = paste(dat$date_ymd_gmt, GMT_strings) #append ymd to hms
-# dat$datetime_GMT = ymd_hms(GMT_strings, tz = 'GMT') #convert
-# dat$datetime_ET = with_tz(dat$datetime_GMT, "US/Eastern")
-# dat$date_jday_ET = format(dat$datetime_ET,"%j") #calculate jday based on US/Eastern time
-# rm(GMT_strings)
-
-#create Year Month Day columns based on US/Eastern tz
-dat$YEAR_ET <- as.numeric(format(dat$datetime_et,"%Y"))
-dat$MONTH_ET <- as.numeric(format(dat$datetime_et,"%m"))
-dat$DAY_ET <- as.numeric(format(dat$datetime_et,"%d"))
-
-# keep only desired years and months (based on US/Eastern tz)
-dat <- dat %>%
-  filter(YEAR_ET >= begYEAR & YEAR_ET <= endYEAR)
-dat <- dat %>%
-  filter(MONTH_ET == begMONTH | MONTH_ET == endMONTH)
-
-# create seasons matrix
-source('makeSeasons.R')
-season <- makeSeasons(begYEAR,endYEAR,ssn_beg,ssn_end)
-ssn_beg_date <- as.Date(paste(season[,1],season[,2],season[,3],sep="-"),"%Y-%m-%d")
-ssn_end_date <- as.Date(paste(season[,1],season[,4],season[,5],sep="-"),"%Y-%m-%d")
-ssn_no = season$SSN_NO
-num_ssn = max(ssn_no)
-ssn_no_grpd = season$SSN_GRPD_NO
-# insert columns with season and season_grpd
-dat$season = NA
-dat$season_grpd = NA
-for (i in 1:length(ssn_beg_date)){
-  I = which(dat$datetime_et >= ssn_beg_date[i] & dat$datetime_et <= ssn_end_date[i])
-  dat$season[I] = ssn_no[i]
-  dat$season_grpd[I] = ssn_no_grpd[i]
-}
-
-dat <- dat %>%
-  mutate(on.off.eff = if_else((BEAUFORT <= 6 & # normally require sea state 0-3, but sea state will be covariate on detection in this model
-                                 (
-                                   (LEGTYPE == 5 & (LEGSTAGE == 1 | LEGSTAGE == 2 | LEGSTAGE == 5)) | #start, continue, end watch while ship not underway
-                                     (LEGTYPE == 6 & (LEGSTAGE == 1 | LEGSTAGE == 2 | LEGSTAGE == 5)) #legtype = 6 indicates ship not underway (listening station)
-                                 ) & 
-                                 (VISIBLTY >=2 | VISIBLTY == -1) & #pre-2020 changes to NARWC Sightings Database, VISIBLTY >=2 or -1 indicates visibility of at least 2 nautical miles. Negative numbers are no longer used, however this dataset was obtained in 2019 before the change.
-                                 (IDREL == 3 | is.na(IDREL)) # if there is a sighting, IDREL must = 3. If no sightings, then IDREL should be NA
-  ), 
-  1, 0)) %>%
-  #now replace all NA with 0 because those are off-effort
-  mutate(on.off.eff = ifelse(is.na(on.off.eff), 0, on.off.eff)
-  )
-
-# create unique identifier for continuous segments of on-effort
-# use cumsum(abs(diff())) to create continuous numbers based upon on.off.eff
-dat <- dat %>%
-  mutate(on.effort.id = c(1, cumsum(abs(diff(dat$on.off.eff))) + 1))
-# filter out on.off.eff == 0
-dat <- dat %>%
-  filter(dat$on.off.eff !=0)
-
-## REDUCE SIZE OF THE DATASET
-keep.cols <- c("FILEID", 
-               "EVENTNO", 
-               "YEAR", "MONTH", "DAY", 
-               "BEAUFORT", 
-               "LEGTYPE", "LEGSTAGE", 
-               "LATITUDE", "LONGITUDE", 
-               "SPECCODE", "IDREL", "NUMBER", 
-               "datetime_et", "date_jday_ET", 
-               "on.off.eff", 
-               "season", "season_grpd",
-               "on.effort.id")
-tmpdat <- dat %>%
-  dplyr::select(all_of(keep.cols)) #%>%
-rm(keep.cols)
-
-#write.csv(dat, file = "dat_with_dist.csv")
-#write.csv(tmpdat, file = "tmpdat.csv")
-
-make_figs = 'no' #'yes' 
 
 ## ADD GEOMETRY TO DATASET AND MAKE INTO SF OBJECT
 #matrix of lat and long
@@ -188,21 +22,26 @@ rm(locs, locs_pts, locs_sfc) # clean up environment
 #   lat = c(44.82, 44.78, 44.67, 44.55, 44.48, 44.48, 44.70, 44.82)
 # )
 
-# large box drawn by dan
-polygon_matrix = cbind(
-  lon = c(-67.2, -67.2, -65.7, -65.7, -67.2),
-  lat = c( 44.1,  45.1,  45.1,  44.1,  44.1)
-)
+## CREATE A GRID WITH SPATIAL INFORMATION AND GRID_IDS
+cell_size = 0.05
+area_grid = st_make_grid(tmpdat_sf, c(cell_size, cell_size), what = "polygons", square = FALSE)
+mapview(area_grid)
 
-polygon_sfc = st_sfc(st_polygon(list(polygon_matrix))) #create sfc object
-st_crs(polygon_sfc) = "EPSG:4326" #insert crs
-polygon_sf = st_sf(polygon_sfc)
-mapview(polygon_sf)
+# # define region of interest
+# polygon_matrix = cbind(
+#   lon = c(-67.2, -67.2, -65.7, -65.7, -67.2),
+#   lat = c( 44.1,  45.1,  45.1,  44.1,  44.1)
+# )
+# 
+# polygon_sfc = st_sfc(st_polygon(list(polygon_matrix))) #create sfc object
+# st_crs(polygon_sfc) = "EPSG:4326" #insert crs
+# polygon_sf = st_sf(polygon_sfc)
+# mapview(polygon_sf)
 
 # create vessel tracks for each FILEID
 tracks <- tmpdat_sf %>% 
-  group_by(FILEID, on.effort.id) %>% 
-  arrange(FILEID, EVENTNO) %>% # put it in order
+  #group_by(FILEID, on.effort.id) %>% 
+  #arrange(FILEID, EVENTNO) %>% # put it in order
   summarise(do_union = FALSE) %>%  #if you don't do this, it returns one row for each row of tmpdat_sf (your original thing)
   #st_geometry() #%>% 
   st_cast("MULTILINESTRING")
