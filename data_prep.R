@@ -1,4 +1,3 @@
-dat <- read_csv(file = file_loc)
 
 # ## import data
 # dat <- read_csv(file = file_loc, 
@@ -24,34 +23,17 @@ dat <- read_csv(file = file_loc)
 #                                  CONFIDNC = col_double())
 # )
 
-# #restrict to R/V Nereid
-# dat <- dat %>%
-#   filter(PLATFORM == 99)
 
-# # discard opportunistic surveys
-# dat <- dat %>%
-#   mutate(fileid = str_sub(FILEID, start = 1, end = 1)) %>% 
-#   filter(fileid == "P" | fileid == "p") %>%
-#   dplyr::select(-fileid)
-
-
+#change datetime column, then add Year Month Day columns based on US/Eastern tz
 dat$datetime_et <- dmy_hms(dat$DATETIME_ET, tz = 'EST5EDT')
-
-# #dat$date_ymd_gmt <- as.Date(with(dat,paste(YEAR,MONTH,DAY,sep="-")),"%Y-%m-%d")
-# source('padstr0.R')
-# GMT_strings = padstr0(dat$GMT,6) #pad GMT times so they have 6 digits
-# #correct instances where "200000" was stored as "02e+05"
-# GMT_strings[which(GMT_strings == "02e+05")] = "200000"
-# GMT_strings = paste(dat$date_ymd_gmt, GMT_strings) #append ymd to hms
-# dat$datetime_GMT = ymd_hms(GMT_strings, tz = 'GMT') #convert
-# dat$datetime_ET = with_tz(dat$datetime_GMT, "US/Eastern")
-# dat$date_jday_ET = format(dat$datetime_ET,"%j") #calculate jday based on US/Eastern time
-# rm(GMT_strings)
-
-#create Year Month Day columns based on US/Eastern tz
 dat$YEAR_ET <- as.numeric(format(dat$datetime_et,"%Y"))
 dat$MONTH_ET <- as.numeric(format(dat$datetime_et,"%m"))
 dat$DAY_ET <- as.numeric(format(dat$datetime_et,"%d"))
+
+# must create survey identifier
+# sort by datetime_et, 
+
+
 
 # keep only desired years and months (based on US/Eastern tz)
 dat <- dat %>%
