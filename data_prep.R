@@ -29,16 +29,29 @@ dat$datetime_et <- dmy_hms(dat$DATETIME_ET, tz = 'EST5EDT')
 dat$YEAR_ET <- as.numeric(format(dat$datetime_et,"%Y"))
 dat$MONTH_ET <- as.numeric(format(dat$datetime_et,"%m"))
 dat$DAY_ET <- as.numeric(format(dat$datetime_et,"%d"))
-dat$YMD <- format(dat$datetime_et, "%y%m%d")
+dat$YMD <- format(dat$datetime_et, "%Y%m%d")
 
 # must create survey identifier
+dat <- dat %>%
+  mutate(fileid = paste0(YMD, "_", PLANE))
 
+# unique dates
+length(unique(dat$fileid))
+# 1575 dates
+
+# how many dates with >1 plane?
+multi_plane <-  dat %>%
+  group_by(YMD) %>%
+  summarize(n_planes = n_distinct(PLANE)) %>%
+  filter(n_planes > 1)
+dim(multi_plane)[1]
+# 60 dates with > 1 plane
 
 # keep only desired years and months (based on US/Eastern tz)
 dat <- dat %>%
   filter(YEAR_ET >= begYEAR & YEAR_ET <= endYEAR)
-dat <- dat %>%
-  filter(MONTH_ET >= begMONTH | MONTH_ET <= endMONTH)
+#dat <- dat %>%
+#  filter(MONTH_ET >= begMONTH | MONTH_ET <= endMONTH)
 
 # create seasons matrix
 source('makeSeasons.R')
