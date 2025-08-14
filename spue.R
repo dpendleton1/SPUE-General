@@ -27,16 +27,16 @@ cell_size = 0.05
 area_grid = st_make_grid(tmpdat_sf, c(cell_size, cell_size), what = "polygons", square = FALSE)
 mapview(area_grid)
 
-# # define region of interest
-# polygon_matrix = cbind(
-#   lon = c(-67.2, -67.2, -65.7, -65.7, -67.2),
-#   lat = c( 44.1,  45.1,  45.1,  44.1,  44.1)
-# )
-# 
-# polygon_sfc = st_sfc(st_polygon(list(polygon_matrix))) #create sfc object
-# st_crs(polygon_sfc) = "EPSG:4326" #insert crs
-# polygon_sf = st_sf(polygon_sfc)
-# mapview(polygon_sf)
+# define region of interest
+polygon_matrix = cbind(
+  lon = c(-73, -73, -66, -66, -73),
+  lat = c( 39,  43,  43,  39,  39)
+)
+ 
+polygon_sfc = st_sfc(st_polygon(list(polygon_matrix))) #create sfc object
+st_crs(polygon_sfc) = "EPSG:4326" #insert crs
+polygon_sf = st_sf(polygon_sfc)
+mapview(polygon_sf)
 
 # create vessel tracks for each FILEID
 tracks <- tmpdat_sf %>% 
