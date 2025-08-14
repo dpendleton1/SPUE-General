@@ -92,22 +92,16 @@ for (i in 1:length(ssn_beg_date)){
 # dat <- dat %>%
 #   filter(dat$on.off.eff !=0)
 
-## REDUCE SIZE OF THE DATASET
-keep.cols <- c("SOURCE",
-               "PLANE", 
-               "LATITUDE", "LONGITUDE",
-               "FLIGHT_TYPE","EVENT_NUMBER", 
-               "HEADING","ALTITUDE","CLOUD_PERCENT",
-               "LEGTYPE", "LEGSTAGE", "PSB_LEGSTAGE",
-               "ANGLE","BEARING","DISTANCE",
-               "YEAR_ET","MONTH_ET","DAY_ET",
-               "CALVES","GROUP_SIZE",
-               "SPCODE","ID_RELIABILITY",
-               "DATETIME_ET","datetime_et","season", "season_grpd")
-
+keep.cols <- c( "fileid", "EVENT_NUMBER", "datetime_et", "YEAR_ET", "MONTH_ET", "DAY_ET", "YMD",
+                "LATITUDE", "LONGITUDE", "LEGTYPE", "LEGSTAGE", "PSB_LEGSTAGE",
+                "BEAUFORT",  "CLOUD_CODE", "CLOUD_PERCENT",  
+                "SPCODE", "GROUP_SIZE", "CALVES", "PHOTOS", "ID_RELIABILITY", "SIGHTING_NUMBER",
+                "PLANE", "VISIBILTY_CODE", "VISIBILTY_NM",
+                "season", "season_grpd", "SOURCE")          
 tmpdat <- dat %>%
   dplyr::select(all_of(keep.cols)) #%>%
 rm(keep.cols)
+
 
 #write.csv(dat, file = "dat_with_dist.csv")
 #write.csv(tmpdat, file = "tmpdat.csv")
