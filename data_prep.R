@@ -29,10 +29,9 @@ dat$datetime_et <- dmy_hms(dat$DATETIME_ET, tz = 'EST5EDT')
 dat$YEAR_ET <- as.numeric(format(dat$datetime_et,"%Y"))
 dat$MONTH_ET <- as.numeric(format(dat$datetime_et,"%m"))
 dat$DAY_ET <- as.numeric(format(dat$datetime_et,"%d"))
+dat$YMD <- format(dat$datetime_et, "%y%m%d")
 
 # must create survey identifier
-# sort by datetime_et, 
-
 
 
 # keep only desired years and months (based on US/Eastern tz)
