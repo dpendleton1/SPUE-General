@@ -38,25 +38,27 @@ st_crs(polygon_sfc) = "EPSG:4326" #insert crs
 polygon_sf = st_sf(polygon_sfc)
 mapview(polygon_sf)
 
-# create vessel tracks for each FILEID
+# create vessel tracks for each fileid
 tracks <- tmpdat_sf %>% 
-  #group_by(FILEID, on.effort.id) %>% 
-  #arrange(FILEID, EVENTNO) %>% # put it in order
+  #group_by(fileid, on.effort.id) %>% 
+  #arrange(fileid, EVENT_NUMBER) %>% # put it in order
+  group_by(fileid) %>% 
+  arrange(EVENT_NUMBER) %>% # put it in order
   summarise(do_union = FALSE) %>%  #if you don't do this, it returns one row for each row of tmpdat_sf (your original thing)
   #st_geometry() #%>% 
   st_cast("MULTILINESTRING")
 
-# determine which FILEID tracks intersect the polygon
-#   create logical array identifying FILEIDs that do/don't have effort within the unionized polygon
+# determine which fileid tracks intersect the polygon
+#   create logical array identifying fileids that do/don't have effort within the unionized polygon
 #   specify 'sparse = FALSE' to return a logical array
 tracks$intersection <- st_intersects(polygon_sfc, tracks, sparse = FALSE)[1,]
 
-# list of FILEIDs that intersect the unionized polygon
-IN_fileids = tracks$FILEID[tracks$intersection]
+# list of fileids that intersect the unionized polygon
+IN_fileids = tracks$fileid[tracks$intersection]
 
-# discard FILEIDs that do not intersect the polygon
+# discard fileids that do not intersect the polygon
 tmpdat_sf <- tmpdat_sf %>%
-  filter(FILEID %in% IN_fileids)
+  filter(fileid %in% IN_fileids)
 
 #rm(tracks, IN_fileids)
 
@@ -91,7 +93,7 @@ num_survs = tibble(
   num = NA)
 for (i in 1:num_ssn){
   tmpdat_sf_ssn = tmpdat_sf |> filter(season == ssn_no[i])
-  num_survs[i,2] = length(unique(tmpdat_sf_ssn$FILEID))
+  num_survs[i,2] = length(unique(tmpdat_sf_ssn$fileid))
 }
 rm(tmpdat_sf_ssn, i)
 max_survs = max(num_survs[,2])
@@ -138,8 +140,8 @@ for (i in 1:num_ssn){
   # isolate season
   tmpdat_sf_season = tmpdat_sf |> filter(season == i)
   
-  # find unique FILEIDs within the season[i]. each unique FILEID is a survey
-  season_ufids = unique(tmpdat_sf_season$FILEID)
+  # find unique fileids within the season[i]. each unique fileid is a survey
+  season_ufids = unique(tmpdat_sf_season$fileid)
   num_season_ufids = length(season_ufids)
   
   # initialize temporary spatial arrays needed for intersecting within the loop about surveys/ufids
@@ -153,12 +155,12 @@ for (i in 1:num_ssn){
   jday[,3:(max_survs+2)] = NA  
   bft[,3:(max_survs+2)] = NA
   
-  #loop about individual surveys (FILEID) to obtain effort, jday, bft in each cell/polygon
+  #loop about individual surveys (fileid) to obtain effort, jday, bft in each cell/polygon
   for (j in 1:num_season_ufids){
     
     # filter tmpdat_sf_season for each fileid/survey. store as tmpdat_sf_season_survey
     # after this, 'tmpdat_sf_season_survey' has all records from season[i] and season_ufids[j] (season_ufids = survey) 
-    cmd = paste("tmpdat_sf_season_survey = tmpdat_sf_season |> filter(FILEID == '", season_ufids[j], "')", sep = "")
+    cmd = paste("tmpdat_sf_season_survey = tmpdat_sf_season |> filter(fileid == '", season_ufids[j], "')", sep = "")
     print(cmd)
     eval(parse(text = cmd))
     
@@ -171,15 +173,15 @@ for (i in 1:num_ssn){
     # this chunk of code converts rows of tmpdat_sf_season_survey into a linestring, 
     # but within each fileid. the result is an sfc object
     # nereid_tracks <- tmpdat_sf_season_survey %>% 
-    #   #group_by(FILEID) %>% # this is not necessary since you are working with a tmpdat file that only has one FILEID
-    #   arrange(FILEID, EVENTNO) %>% # put it in order
+    #   #group_by(fileid) %>% # this is not necessary since you are working with a tmpdat file that only has one fileid
+    #   arrange(fileid, EVENT_NUMBER) %>% # put it in order
     #   summarise(do_union = FALSE) %>%  #if you don't do this, it returns one row for each row of tmpdat_sf (your original thing)
     #   #st_geometry() %>% #this seems unnecessary
     #   st_cast("LINESTRING")
     
     nereid_tracks <- tmpdat_sf_season_survey %>% 
       group_by(on.effort.id) %>% # on/off effort
-      arrange(FILEID, EVENTNO) %>% # put it in order
+      arrange(fileid, EVENT_NUMBER) %>% # put it in order
       summarise(do_union = FALSE) %>%  #if you don't do this, it returns one row for each row of tmpdat_sf (your original thing)
       #st_geometry() %>% #this seems unnecessary
       st_cast("MULTILINESTRING")
@@ -282,7 +284,7 @@ for (i in 1:num_ssn){
     print(spp[j])
     
     # generate one dataset holding only data for each species (no effort, etc) 
-    # the result will hold records for the species across all FILEIDs
+    # the result will hold records for the species across all fileids
     # example: HAPO = tmpdat_sf |> filter(SPECCODE == "HAPO")
     cmd = paste(spp[j], "_season = tmpdat_sf_season |> filter(SPECCODE == '", spp[j], "')", sep = "")
     print(cmd)
@@ -311,8 +313,8 @@ for (i in 1:num_ssn){
       print(season_ufids[k]) #display the fileid/survey
       
       # spp[j] for season[i] and survey[k]
-      # example: HAPO_tmp = HAPO |> filter(FILEID == fids[j])
-      cmd = paste(spp[j], "_season_survey = ", spp[j], "_season |> filter(FILEID == '", season_ufids[k], "')", sep = "")
+      # example: HAPO_tmp = HAPO |> filter(fileid == fids[j])
+      cmd = paste(spp[j], "_season_survey = ", spp[j], "_season |> filter(fileid == '", season_ufids[k], "')", sep = "")
       print(cmd)
       eval(parse(text = cmd))
       
