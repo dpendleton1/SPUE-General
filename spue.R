@@ -110,7 +110,7 @@ bft_list = vector("list", num_ssn) #holds beafort sea state for each survey and 
 
 ## CREATE ARRAYS TO HOLD SPECIES DETECTION HISTORIES & DETECTION COVARIATE ARRAYS FOR JAGS MODELLING
 # enumerate species and count them
-spp = unique(dat$SPECCODE[!is.na(dat$SPECCODE)]) #need array for each species in each year (primary period)
+spp = unique(dat$SPCODE[!is.na(dat$SPCODE)]) #need array for each species in each year (primary period)
 spp = "RIWH" #reduce to RIWH for simplicity
 num_spp = length(spp)
 print(num_spp)
@@ -132,6 +132,8 @@ for (j in 1:num_spp){
 effort3d = spp3d #effort from linestrings
 jday3d = spp3d 
 bft3d = spp3d 
+
+#STOPPED HERE AUG 14 2025
 
 ## FILL DETECTION COVARAIATE LIST OBJECTS AND 3D ARRAYS
 #loop about season [i], then loop about survey [j], the loop about grid cell
@@ -285,8 +287,8 @@ for (i in 1:num_ssn){
     
     # generate one dataset holding only data for each species (no effort, etc) 
     # the result will hold records for the species across all fileids
-    # example: HAPO = tmpdat_sf |> filter(SPECCODE == "HAPO")
-    cmd = paste(spp[j], "_season = tmpdat_sf_season |> filter(SPECCODE == '", spp[j], "')", sep = "")
+    # example: HAPO = tmpdat_sf |> filter(SPCODE == "HAPO")
+    cmd = paste(spp[j], "_season = tmpdat_sf_season |> filter(SPCODE == '", spp[j], "')", sep = "")
     print(cmd)
     eval(parse(text = cmd))
     
