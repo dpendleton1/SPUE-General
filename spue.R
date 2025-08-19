@@ -1,6 +1,3 @@
-
-
-
 ## ADD GEOMETRY TO DATASET AND MAKE INTO SF OBJECT
 #matrix of lat and long
 locs = cbind(tmpdat$LONGITUDE, tmpdat$LATITUDE) #raw long/lat points
