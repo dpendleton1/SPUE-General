@@ -130,8 +130,6 @@ effort3d = spp3d #effort from linestrings
 jday3d = spp3d 
 bft3d = spp3d 
 
-#STOPPED HERE AUG 14 2025
-
 ## FILL DETECTION COVARAIATE LIST OBJECTS AND 3D ARRAYS
 #loop about season [i], then loop about survey [j], the loop about grid cell
 for (i in 1:num_ssn){
