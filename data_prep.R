@@ -76,14 +76,21 @@ for (i in 1:length(ssn_beg_date)){
 dat$beaufort <- floor(dat$BEAUFORT)
 
 dat <- dat %>%
-  mutate(on.off.eff = if_else((BEAUFORT <= 6 & # normally require sea state 0-3, but sea state will be covariate on detection in this model
+  mutate(on.off.eff = if_else((beaufort <= 3 & 
                                  (
-                                   (LEGTYPE == 5 & (LEGSTAGE == 1 | LEGSTAGE == 2 | LEGSTAGE == 5)) | #start, continue, end watch while ship not underway
-                                     (LEGTYPE == 6 & (LEGSTAGE == 1 | LEGSTAGE == 2 | LEGSTAGE == 5)) #legtype = 6 indicates ship not underway (listening station)
-                                 ) & 
-                                 (VISIBLTY >=2 | VISIBLTY == -1) & #pre-2020 changes to NARWC Sightings Database, VISIBLTY >=2 or -1 indicates visibility of at least 2 nautical miles. Negative numbers are no longer used, however this dataset was obtained in 2019 before the change.
-                                 (IDREL == 3 | is.na(IDREL)) # if there is a sighting, IDREL must = 3. If no sightings, then IDREL should be NA
-  ), 
+                                 (LEGTYPE == 3  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
+                                 (LEGTYPE == 4  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
+                                 (LEGTYPE == 6  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
+                                 (LEGTYPE == 8  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
+                                 (LEGTYPE == 9  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
+                                 (LEGTYPE == 10 & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
+                                 (LEGTYPE == 11 & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
+                                 (LEGTYPE == 12 & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5))
+                                 )
+                               & 
+                                 (VISIBLTY_NM >= 4) & 
+                                 (ID_RELIABILITY == 3 | is.na(ID_RELIABILITY))
+  ),
   1, 0)) %>%
   #now replace all NA with 0 because those are off-effort
   mutate(on.off.eff = ifelse(is.na(on.off.eff), 0, on.off.eff)
@@ -110,10 +117,6 @@ rm(keep.cols)
 # LEGTYPE LEGSTAGE COMBOS
 a = distinct(select(tmpdat,LEGTYPE,LEGSTAGE))
 
-##   Symbol                Name      Sector  Price Price.Earnings Dividend.Yield
-## 1    AOS     A.O. Smith Corp Industrials  60.24          27.76       1.147959
-## 2    ABT Abbott Laboratories Health Care  56.27          22.51       1.908982
-## 3   ABBV         AbbVie Inc. Health Care 108.48          19.41       2.499560
 
 #write.csv(dat, file = "dat_with_dist.csv")
 #write.csv(tmpdat, file = "tmpdat.csv")
