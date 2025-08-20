@@ -1,28 +1,4 @@
 
-# ## import data
-# dat <- read_csv(file = file_loc, 
-#                 col_types = cols(FILEID = col_character(),
-#                                  EVENTNO = col_double(),
-#                                  MONTH = col_double(),
-#                                  DAY = col_double(),
-#                                  YEAR = col_double(),
-#                                  GMT = col_double(),
-#                                  LATITUDE = col_double(),
-#                                  LONGITUDE = col_double(),
-#                                  LEGTYPE = col_double(),
-#                                  LEGSTAGE = col_double(),
-#                                  ALT = col_double(),
-#                                  HEADING = col_double(),
-#                                  WX = col_character(),
-#                                  CLOUD = col_double(),
-#                                  VISIBLTY = col_double(),
-#                                  BEAUFORT = col_double(),
-#                                  SPECCODE = col_character(),
-#                                  IDREL = col_double(),
-#                                  NUMBER = col_double(),
-#                                  CONFIDNC = col_double())
-# )
-
 
 #change datetime column, then add Year Month Day columns based on US/Eastern tz
 dat$datetime_et <- dmy_hms(dat$DATETIME_ET, tz = 'EST5EDT')
@@ -32,13 +8,17 @@ dat$DAY_ET <- as.numeric(format(dat$datetime_et,"%d"))
 dat$YMD <- format(dat$datetime_et, "%Y%m%d")
 dat$jday <- yday(dat$datetime_et)
 
-# must create survey identifier
+# keep only desired years and months (based on US/Eastern tz)
+dat <- dat %>%
+  filter(YEAR_ET >= begYEAR & YEAR_ET <= endYEAR)
+#dat <- dat %>%
+#  filter(MONTH_ET >= begMONTH | MONTH_ET <= endMONTH)
+
+# create survey identifier/fileid
 dat <- dat %>%
   mutate(fileid = paste0(YMD, "_", PLANE))
-
 # unique dates
 length(unique(dat$fileid))
-# 1575 dates
 
 # how many dates with >1 plane?
 multi_plane <-  dat %>%
@@ -46,13 +26,6 @@ multi_plane <-  dat %>%
   summarize(n_planes = n_distinct(PLANE)) %>%
   filter(n_planes > 1)
 dim(multi_plane)[1]
-# 60 dates with > 1 plane
-
-# keep only desired years and months (based on US/Eastern tz)
-dat <- dat %>%
-  filter(YEAR_ET >= begYEAR & YEAR_ET <= endYEAR)
-#dat <- dat %>%
-#  filter(MONTH_ET >= begMONTH | MONTH_ET <= endMONTH)
 
 # create seasons matrix
 source('makeSeasons.R')
@@ -72,7 +45,6 @@ for (i in 1:length(ssn_beg_date)){
 }
 
 # truncate BEAUFORT because it is not in whole numbers
-
 dat$beaufort <- floor(dat$BEAUFORT)
 
 dat <- dat %>%
@@ -88,7 +60,7 @@ dat <- dat %>%
                                  (LEGTYPE == 12 & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5))
                                  )
                                & 
-                                 (VISIBLTY_NM >= 4) & 
+                                 #(VISIBILTY_NM >= 4) & # sometimes there was no viz recorded
                                  (ID_RELIABILITY == 3 | is.na(ID_RELIABILITY))
   ),
   1, 0)) %>%
@@ -96,27 +68,34 @@ dat <- dat %>%
   mutate(on.off.eff = ifelse(is.na(on.off.eff), 0, on.off.eff)
   )
 
-# # create unique identifier for continuous segments of on-effort
-# # use cumsum(abs(diff())) to create continuous numbers based upon on.off.eff
-# dat <- dat %>%
-#   mutate(on.effort.id = c(1, cumsum(abs(diff(dat$on.off.eff))) + 1))
-# # filter out on.off.eff == 0
-# dat <- dat %>%
-#   filter(dat$on.off.eff !=0)
+# create unique identifier for continuous segments of on-effort
+# use cumsum(abs(diff())) to create continuous numbers based upon on.off.eff
+dat <- dat %>%
+  mutate(on.effort.id = c(1, cumsum(abs(diff(dat$on.off.eff))) + 1))
+# filter out on.off.eff == 0 DON'T THINK YOU WANT TO DO THIS
+dat <- dat %>%
+  filter(dat$on.off.eff !=0)
 
-keep.cols <- c( "fileid", "EVENT_NUMBER", "datetime_et", "YEAR_ET", "MONTH_ET", "DAY_ET", "YMD",
+fn_time = as.character(as.numeric(Sys.time()))
+fn_time = paste0("file = 'data/dat_", fn_time, ".csv'")
+cmd = paste0("write_csv(dat, ", fn_time, ")")
+eval(parse(text = cmd))
+
+keep.cols <- c( "fileid", "EVENT_NUMBER", "datetime_et", "YEAR_ET", "MONTH_ET", "DAY_ET", "YMD", "jday",
                 "LATITUDE", "LONGITUDE", "LEGTYPE", "LEGSTAGE", "PSB_LEGSTAGE",
-                "BEAUFORT",  "CLOUD_CODE", "CLOUD_PERCENT",  
+                "BEAUFORT", "beaufort", "CLOUD_CODE", "CLOUD_PERCENT",  
                 "SPCODE", "GROUP_SIZE", "CALVES", "PHOTOS", "ID_RELIABILITY", "SIGHTING_NUMBER",
                 "PLANE", "VISIBILTY_CODE", "VISIBILTY_NM",
-                "season", "season_grpd", "SOURCE")          
+                "season", "season_grpd", "SOURCE",
+                "on.off.eff", "on.effort.id")          
 tmpdat <- dat %>%
   dplyr::select(all_of(keep.cols)) #%>%
 rm(keep.cols)
 
+
 # LEGTYPE LEGSTAGE COMBOS
 a = distinct(select(tmpdat,LEGTYPE,LEGSTAGE))
-
+print(a)
 
 #write.csv(dat, file = "dat_with_dist.csv")
 #write.csv(tmpdat, file = "tmpdat.csv")

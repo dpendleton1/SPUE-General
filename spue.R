@@ -20,7 +20,7 @@ rm(locs, locs_pts, locs_sfc) # clean up environment
 # )
 
 ## CREATE A GRID WITH SPATIAL INFORMATION AND GRID_IDS
-cell_size = 0.05
+cell_size = 0.5
 area_grid = st_make_grid(tmpdat_sf, c(cell_size, cell_size), what = "polygons", square = FALSE)
 mapview(area_grid)
 
@@ -194,11 +194,11 @@ for (i in 1:num_ssn){
       
       #create the survey map
       survey_map = mapview(nereid_tracks, color = "red", lwd = 4, alpha = 1, popup = NULL) +
-        mapview(tmpdat_sf_season_survey, color = "blue", cex = 2, alpha = .2, popup = NULL) +
+        #mapview(tmpdat_sf_season_survey, color = "blue", cex = 2, alpha = .2, popup = NULL) +
         mapview(polygon_sf)
       survey_map  #plot the survey map
       #write and view map as html file
-      html_fl = paste0(curr_dir, "/figs/", unique(tmpdat_sf_season$YEAR), "_ssn", i, "_surv", j, "_", season_ufids[j], ".html")
+      html_fl = paste0(curr_dir, "/figs/", unique(tmpdat_sf_season$YEAR_ET), "_ssn", i, "_surv", j, "_", season_ufids[j], ".html")
       mapshot(survey_map, url = html_fl) #save the map
       #browseURL(html_fl) #open the map in a web browser
     }
@@ -212,7 +212,7 @@ for (i in 1:num_ssn){
       mutate(total_length = st_length(.)) %>%
       mutate(total_length_km = as.numeric(total_length)*0.001) %>% #changes length from [m] to <dbl> and converts from meters to kilometers
       group_by(grid_id)
-    # plot(intersection$polygon_sfc)
+    plot(intersection$polygon_sfc)
     
     # join the 'intersection' with grid_id. this creates a matrix with the same order as all the others (e.g. 'effort').
     effort_joined <- polygon_sf %>% 
@@ -225,8 +225,8 @@ for (i in 1:num_ssn){
     
     # fill jday array. no need to loop about grid cells because jday is the same for every grid cell within each survey:
     #   jday should be the same for all grid cells within a survey, so fill all rows with jday value and NA-out grid cells not surveyed below
-    if (length(unique(tmpdat_sf_season_survey$date_jday_ET)) == 1){
-      jday[,j+2] = as.numeric(unique(tmpdat_sf_season_survey$date_jday_ET))
+    if (length(unique(tmpdat_sf_season_survey$jday)) == 1){
+      jday[,j+2] = as.numeric(unique(tmpdat_sf_season_survey$jday))
     } else {
       #jday[,j+2] = -99 #there should only be one value of DAY
       print('>1 jday. STOP!')
@@ -236,16 +236,17 @@ for (i in 1:num_ssn){
     # fill bft array. NA-out grid cells not surveyed (below)
     for (k in 1:num_cells){
       # compute mean of Beaufort values
-      bft[k,j+2] = mean(tmpdat_sf_season_survey$BEAUFORT[tmpdat_sf_season_survey_grid[[k]]], na.rm = T)
+      bft[k,j+2] = mean(tmpdat_sf_season_survey$beaufort[tmpdat_sf_season_survey_grid[[k]]], na.rm = T)
     }
     
     rm(tmpdat_sf_season_survey_grid)
   }
   
   #name columns in 2D detection covariates
-  names(effort)[3:(num_season_ufids+2)] = season_ufids
-  names(jday)[3:(num_season_ufids+2)] = season_ufids
-  names(bft)[3:(num_season_ufids+2)] = season_ufids
+  #since the fileids are super long, I commentd this out 
+  #names(effort)[3:(num_season_ufids+2)] = season_ufids
+  #names(jday)[3:(num_season_ufids+2)] = season_ufids
+  #names(bft)[3:(num_season_ufids+2)] = season_ufids
   
   # fill 3d effort matrix
   cmd = paste("effort3d[,,", i, "] = as.matrix(st_drop_geometry(effort))", sep = "")
