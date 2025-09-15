@@ -34,10 +34,10 @@ ssn_end=rbind(c(1,31), c(2,29), c(3,31), c(4,30), c(5,31), c(6,30), c(7,31), c(8
 
 #load data
 file_loc = paste0(curr_dir, "/data/", fn)
-#dat <- read_csv(file = file_loc)
+dat <- read_csv(file = file_loc)
 
 ## import data
-dat <- read_csv(file = file_loc,
+dat <- read_csv(file = "2000-2024 NEFSC Data .csv",
                 col_types = cols(SOURCE = col_character(),
                                  PLANE = col_character(),
                                  EVENT_NUMBER = col_double(),
@@ -64,21 +64,21 @@ dat <- read_csv(file = file_loc,
                                  SPCODE = col_character(),
                                  ID_RELIABILITY = col_double(),
                                  GROUP_SIZE = col_double(),
-                                 CALVES = col_logical(),
-                                 BEARING = col_logical(),
-                                 DISTANCE = col_logical(),
-                                 RELATIVE_HEADING = col_logical(),
+                                 CALVES = col_double(),
+                                 BEARING = col_double(),
+                                 DISTANCE = col_double(),
+                                 RELATIVE_HEADING = col_double(),
                                  ACTUAL_HEADING = col_double(),
                                  OBSERVER = col_character(),
                                  OBS_POSITION = col_character(),
                                  ANGLE = col_double(),
                                  CUE = col_character(),
                                  B1_FINAL_CODE = col_character(),
-                                 B2_FINAL_CODE = col_double(),
-                                 B3_FINAL_CODE = col_logical(),
-                                 B4_FINAL_CODE = col_logical(),
-                                 B5_FINAL_CODE = col_logical(),
-                                 PHOTOS = col_double(),
+                                 B2_FINAL_CODE = col_character(),
+                                 B3_FINAL_CODE = col_character(),
+                                 B4_FINAL_CODE = col_character(),
+                                 B5_FINAL_CODE = col_character(),
+                                 PHOTOS = col_integer(),
                                  EFFORT_COMMENTS = col_character(),
                                  SIGHTING_COMMENTS = col_character(),
                                  EDIT1 = col_character(),
@@ -87,10 +87,10 @@ dat <- read_csv(file = file_loc,
                                  MISC_EDIT1 = col_character(),
                                  MISC_EDIT2 = col_character(),
                                  MISC_EDIT3 = col_character(),
-                                 MISC_EDIT4 = col_logical(),
+                                 MISC_EDIT4 = col_character(),
                                  RID = col_double(),
                                  EVENT_T = col_double(),
                                  DATETIME_ET = col_character()
-                                 
                 )
 )
+
