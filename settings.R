@@ -34,8 +34,9 @@ ssn_end=rbind(c(1,31), c(2,29), c(3,31), c(4,30), c(5,31), c(6,30), c(7,31), c(8
 
 #load data
 file_loc = paste0(curr_dir, "/data/", fn)
-dat <- read_csv(file = file_loc)
+#dat <- read_csv(file = file_loc)
 
+setwd(paste0(curr_dir, "/data/"))
 ## import data
 dat <- read_csv(file = "2000-2024 NEFSC Data .csv",
                 col_types = cols(SOURCE = col_character(),
@@ -93,4 +94,5 @@ dat <- read_csv(file = "2000-2024 NEFSC Data .csv",
                                  DATETIME_ET = col_character()
                 )
 )
+setwd(paste0(curr_dir))
 

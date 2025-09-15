@@ -13,11 +13,12 @@ dat <- dat %>%
   filter(YEAR_ET >= begYEAR & YEAR_ET <= endYEAR)
 #dat <- dat %>%
 #  filter(MONTH_ET >= begMONTH | MONTH_ET <= endMONTH)
+unique(dat$YEAR_ET)
 
 # create survey identifier/fileid
 dat <- dat %>%
   mutate(fileid = paste0(YMD, "_", PLANE))
-# unique dates
+# number of unique dates
 length(unique(dat$fileid))
 
 # how many dates with >1 plane?
@@ -25,6 +26,7 @@ multi_plane <-  dat %>%
   group_by(YMD) %>%
   summarize(n_planes = n_distinct(PLANE)) %>%
   filter(n_planes > 1)
+# number of days with > 1 plane
 dim(multi_plane)[1]
 
 # create seasons matrix
