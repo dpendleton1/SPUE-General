@@ -11,7 +11,10 @@ library(googledrive)
 library(lubridate)
 
 #make_figs = 'no' #'yes' 
-make_figs = 'yes'
+make_figs = 'no'
+
+ssn_type = "within" # within year seasons
+ssn_type = "across" # across year seasons, e.g. for climatologies
 
 #find current directory, setwd to current directory
 curr_dir <- dirname(rstudioapi::getSourceEditorContext()$path)
@@ -22,8 +25,7 @@ fn = '2000-2024 NEFSC Data.csv'
 ## inputs
 #years
 begYEAR = 2015
-endYEAR = 2015
-
+endYEAR = 2023
 #months
 begMONTH = 1
 endMONTH = 12
@@ -38,7 +40,7 @@ file_loc = paste0(curr_dir, "/data/", fn)
 
 setwd(paste0(curr_dir, "/data/"))
 ## import data
-dat <- read_csv(file = "2000-2024 NEFSC Data .csv",
+dat <- read_csv(file = "2000-2024 NEFSC Data.csv",
                 col_types = cols(SOURCE = col_character(),
                                  PLANE = col_character(),
                                  EVENT_NUMBER = col_double(),

@@ -1,5 +1,3 @@
-
-
 #change datetime column, then add Year Month Day columns based on US/Eastern tz
 dat$datetime_et <- dmy_hms(dat$DATETIME_ET, tz = 'EST5EDT')
 dat$YEAR_ET <- as.numeric(format(dat$datetime_et,"%Y"))
@@ -35,8 +33,15 @@ season <- makeSeasons(begYEAR,endYEAR,ssn_beg,ssn_end)
 ssn_beg_date <- as.Date(paste(season[,1],season[,2],season[,3],sep="-"),"%Y-%m-%d")
 ssn_end_date <- as.Date(paste(season[,1],season[,4],season[,5],sep="-"),"%Y-%m-%d")
 ssn_no = season$SSN_NO
-num_ssn = max(ssn_no)
-ssn_no_grpd = season$SSN_GRPD_NO
+ssn_no_grpd = season$SSN_GRPD_NO # grouped season numbers will repeat, and we only want one set of them, so we use 'unique'
+
+# select within or across years season number
+if (ssn_type == "within"){
+  num_ssn = max(ssn_no)  
+} else if (ssn_type == "across"){
+  num_ssn = max(ssn_no_grpd)
+}
+
 # insert columns with season and season_grpd
 dat$season = NA
 dat$season_grpd = NA
@@ -93,7 +98,6 @@ keep.cols <- c( "fileid", "EVENT_NUMBER", "datetime_et", "YEAR_ET", "MONTH_ET", 
 tmpdat <- dat %>%
   dplyr::select(all_of(keep.cols)) #%>%
 rm(keep.cols)
-
 
 # LEGTYPE LEGSTAGE COMBOS
 a = distinct(select(tmpdat,LEGTYPE,LEGSTAGE))

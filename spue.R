@@ -22,14 +22,26 @@ rm(locs, locs_pts, locs_sfc) # clean up environment
 ## CREATE A GRID WITH SPATIAL INFORMATION AND GRID_IDS
 cell_size = 0.5
 area_grid = st_make_grid(tmpdat_sf, c(cell_size, cell_size), what = "polygons", square = FALSE)
-mapview(area_grid)
+#mapview(area_grid)
 
-# define region of interest
-polygon_matrix = cbind(
-  lon = c(-73, -73, -66, -66, -73),
-  lat = c( 39,  43,  43,  39,  39)
-)
+# # define region of interest - GSC centered region
+# polygon_matrix = cbind(
+#   lon = c(-73, -73, -66, -66, -73),
+#   lat = c( 39,  43,  43,  39,  39)
+# )
+
+# # define region of interest - GOM and GSL
+# polygon_matrix = cbind(
+#   lon = c(-73, -73, -55, -55, -73),
+#   lat = c( 39,  52,  52,  39,  39)
+# )
  
+# define region of interest - GSC critical habitat
+polygon_matrix = cbind(
+  lon = c(-69.75, -68.5167, -68.2167, -69.0833, -69.75),
+  lat = c( 41.667,  42.167,  41.633,  41.000,  41.667)
+)
+
 polygon_sfc = st_sfc(st_polygon(list(polygon_matrix))) #create sfc object
 st_crs(polygon_sfc) = "EPSG:4326" #insert crs
 polygon_sf = st_sf(polygon_sfc)
@@ -81,21 +93,39 @@ grid_id_list = st_intersects(polygon_sf, tmpdat_sf) #[i THINK] these are all row
 for (ii in 1:num_cells){ #for each grid cell, insert the number of the grid cell in the correct row of tmpdat_ssf_season_survey
   tmpdat_sf$grid_id[grid_id_list[[ii]]] = ii
 }
+unique(tmpdat_sf$grid_id)
 rm(ii)
 
 # count number of surveys in each season
 # the maximum number of surveys within each season is required for looping
+# select within or across years season number
+if (ssn_type == "within"){
+  ssn = ssn_no
+} else if (ssn_type == "across"){
+  ssn = unique(ssn_no_grpd)
+}
+ssn
+
 num_survs = tibble(
-  ssn = ssn_no,
+  ssn,
   num = NA)
 for (i in 1:num_ssn){
-  tmpdat_sf_ssn = tmpdat_sf |> filter(season == ssn_no[i])
+  if (ssn_type == "within"){
+    tmpdat_sf_ssn = tmpdat_sf |> filter(season == ssn_no[i])
+  } else if (ssn_type == "across"){
+    tmpdat_sf_ssn = tmpdat_sf |> filter(season_grpd == ssn_no[i])
+  }
   num_survs[i,2] = length(unique(tmpdat_sf_ssn$fileid))
 }
 rm(tmpdat_sf_ssn, i)
 max_survs = max(num_survs[,2])
 print(num_survs)
 print(max_survs)
+
+# # look at what year and season combinations are present in tmpdat_sf
+# a <- st_drop_geometry(tmpdat_sf)
+# b <- distinct(select(a,YEAR_ET, season_grpd))
+# c <- distinct(select(a,YEAR_ET, season))
 
 ## CREATE DETECTION COVARIATE LISTS 
 # need to produce one effort grid for each season. here we construct lists to store these values. 
@@ -121,7 +151,7 @@ for (j in 1:num_spp){
   print(spp[j])
   # generate 3d array to hold detections / non-detections. initialize 3d array
   cmd = paste(spp[j], "3d = spp3d", sep = "")
-  # print(cmd)
+  print(cmd)
   eval(parse(text = cmd))
 }
 
@@ -135,7 +165,18 @@ bft3d = spp3d
 for (i in 1:num_ssn){
   
   # isolate season
-  tmpdat_sf_season = tmpdat_sf |> filter(season == i)
+  if (ssn_type == "within"){
+    tmpdat_sf_season = tmpdat_sf |> filter(season == i)
+  } else if (ssn_type == "across"){
+    tmpdat_sf_season = tmpdat_sf |> filter(season_grpd == i)
+  }
+  
+  # if there is no data in tmpdat_sf_season, it means there was not a survey in this season
+  # look at num_survs to see how many surveys are in each season. if there are zero surveys in a season,
+  # then the condition below will be true, and that season will be skipped by using the 'next' command:
+  if (dim(tmpdat_sf_season)[1] == 0){
+    next
+  }
   
   # find unique fileids within the season[i]. each unique fileid is a survey
   season_ufids = unique(tmpdat_sf_season$fileid)
@@ -176,7 +217,7 @@ for (i in 1:num_ssn){
     #   #st_geometry() %>% #this seems unnecessary
     #   st_cast("LINESTRING")
     
-    nereid_tracks <- tmpdat_sf_season_survey %>% 
+    survey_tracks <- tmpdat_sf_season_survey %>% 
       group_by(on.effort.id) %>% # on/off effort
       arrange(fileid, EVENT_NUMBER) %>% # put it in order
       summarise(do_union = FALSE) %>%  #if you don't do this, it returns one row for each row of tmpdat_sf (your original thing)
@@ -193,7 +234,7 @@ for (i in 1:num_ssn){
       }
       
       #create the survey map
-      survey_map = mapview(nereid_tracks, color = "red", lwd = 4, alpha = 1, popup = NULL) +
+      survey_map = mapview(survey_tracks, color = "red", lwd = 4, alpha = 1, popup = NULL) +
         #mapview(tmpdat_sf_season_survey, color = "blue", cex = 2, alpha = .2, popup = NULL) +
         mapview(polygon_sf)
       survey_map  #plot the survey map
@@ -204,11 +245,11 @@ for (i in 1:num_ssn){
     }
     
     st_agr(polygon_sf) = "constant"
-    st_agr(nereid_tracks) = "constant"
+    st_agr(survey_tracks) = "constant"
     
     # intersect grid with survey trackline (linestring), 
     # calculate and store trackline length in each grid cell
-    intersection <- st_intersection(polygon_sf, nereid_tracks) %>%
+    intersection <- st_intersection(polygon_sf, survey_tracks) %>%
       mutate(total_length = st_length(.)) %>%
       mutate(total_length_km = as.numeric(total_length)*0.001) %>% #changes length from [m] to <dbl> and converts from meters to kilometers
       group_by(grid_id)
@@ -221,7 +262,7 @@ for (i in 1:num_ssn){
     # below, we add lengths from effort_joined into effort
     # store effort length from each grid cell into the column for survey j
     effort[, j+2] = sum(effort_joined$total_length_km)
-    rm(effort_joined, intersection, nereid_tracks)
+    rm(effort_joined, intersection, survey_tracks)
     
     # fill jday array. no need to loop about grid cells because jday is the same for every grid cell within each survey:
     #   jday should be the same for all grid cells within a survey, so fill all rows with jday value and NA-out grid cells not surveyed below
@@ -242,11 +283,10 @@ for (i in 1:num_ssn){
     rm(tmpdat_sf_season_survey_grid)
   }
   
-  #name columns in 2D detection covariates
-  #since the fileids are super long, I commentd this out 
-  #names(effort)[3:(num_season_ufids+2)] = season_ufids
-  #names(jday)[3:(num_season_ufids+2)] = season_ufids
-  #names(bft)[3:(num_season_ufids+2)] = season_ufids
+  #name columns in 2D detection covariates, use first 8-characters (date)
+  names(effort)[3:(num_season_ufids+2)] = substr(season_ufids, start = 1, stop = 8)
+  names(jday)[3:(num_season_ufids+2)] = substr(season_ufids, start = 1, stop = 8)
+  names(bft)[3:(num_season_ufids+2)] = substr(season_ufids, start = 1, stop = 8)
   
   # fill 3d effort matrix
   cmd = paste("effort3d[,,", i, "] = as.matrix(st_drop_geometry(effort))", sep = "")
@@ -330,8 +370,8 @@ for (i in 1:num_ssn){
       print(cmd)
       eval(parse(text = cmd))
       
-      #use 'idx' from above to sum NUMBER of spp[j] within the polygon
-      cmd = paste(spp[j], "_ssn", i, "_grid_sf[,k+2]", " = sum(", spp[j], "_season_survey$NUMBER[idx[[1]]])", sep = "")
+      #use 'idx' from above to sum GROUP_SIZE of spp[j] within the polygon
+      cmd = paste(spp[j], "_ssn", i, "_grid_sf[,k+2]", " = sum(", spp[j], "_season_survey$GROUP_SIZE[idx[[1]]])", sep = "")
       print(cmd)
       eval(parse(text = cmd))
       
@@ -350,7 +390,7 @@ for (i in 1:num_ssn){
     spp_ssn_name = paste(spp[j], "_ssn", i, "_grid_sf", sep = "") #generate variable name for easy deleting later
     
     # add column names
-    cmd = paste("names(", spp[j], "_ssn", i, "_grid_sf)[3:(num_season_ufids+2)] = season_ufids", sep = "")
+    cmd = paste("names(", spp[j], "_ssn", i, "_grid_sf)[3:(num_season_ufids+2)] = substr(season_ufids, start = 1, stop = 8)", sep = "")
     print(cmd)
     eval(parse(text = cmd))
     
@@ -373,13 +413,14 @@ for (i in 1:num_ssn){
   rm(tmpdat_sf_season, num_season_ufids)
 }
 
-colSums(RIWH3d[1,-1,], na.rm = T)
-colSums(effort3d[1,-1,], na.rm = T)
+colSums(RIWH3d[1, -1, ], na.rm = T)
+colSums(effort3d[1, -1, ], na.rm = T)
 
 SPUE = colSums(RIWH3d[1,-1,], na.rm = T)/(colSums(effort3d[1,-1,], na.rm = T)/1000)
 
 ts = data.frame(
-  year = c(begYEAR:endYEAR),
+  #year = c(begYEAR:endYEAR),
+  ssn,
   spue = SPUE
 )
 plot(ts)
