@@ -12,40 +12,50 @@ st_crs(locs_sfc) = "EPSG:4326" #this sets CRS and it sticks
 tmpdat_sf = st_sf(tmpdat, geometry = locs_sfc)    # sf object
 rm(locs, locs_pts, locs_sfc) # clean up environment
 
-# define study area as a polygon
+## define study area as a polygon
 # bof polygon from a file that i had on my computer
 # polygon_matrix = cbind(
 #   lon = c(-66.45, -66.28, -66.28, -66.37, -66.50, -66.62, -66.62, -66.45),
 #   lat = c(44.82, 44.78, 44.67, 44.55, 44.48, 44.48, 44.70, 44.82)
 # )
 
-## CREATE A GRID WITH SPATIAL INFORMATION AND GRID_IDS
-cell_size = 0.5
-area_grid = st_make_grid(tmpdat_sf, c(cell_size, cell_size), what = "polygons", square = FALSE)
-#mapview(area_grid)
-
-# # define region of interest - GSC centered region
+# GSC centered region - kinda large box
 # polygon_matrix = cbind(
 #   lon = c(-73, -73, -66, -66, -73),
 #   lat = c( 39,  43,  43,  39,  39)
 # )
 
-# # define region of interest - GOM and GSL
+# GOM and GSL - big box
 # polygon_matrix = cbind(
 #   lon = c(-73, -73, -55, -55, -73),
 #   lat = c( 39,  52,  52,  39,  39)
 # )
- 
-# define region of interest - GSC critical habitat
+
+# GSC critical habitat
 polygon_matrix = cbind(
   lon = c(-69.75, -68.5167, -68.2167, -69.0833, -69.75),
   lat = c( 41.667,  42.167,  41.633,  41.000,  41.667)
 )
 
+## I DON'T NEED THIS HERE FOR THIS EXERCISE
+# ## CREATE A GRID WITH SPATIAL INFORMATION AND GRID_IDS
+# cell_size = 0.5
+# area_grid = st_make_grid(tmpdat_sf, c(cell_size, cell_size), what = "polygons", square = FALSE)
+# #mapview(area_grid)
+
+# create polygon sf object and display it
 polygon_sfc = st_sfc(st_polygon(list(polygon_matrix))) #create sfc object
 st_crs(polygon_sfc) = "EPSG:4326" #insert crs
 polygon_sf = st_sf(polygon_sfc)
 mapview(polygon_sf)
+
+#number of cells in the 'grid', for a single polygon this number will be = 1
+num_cells = dim(polygon_sf)[1]
+print(num_cells)
+
+# add grid ID to polygon_sf (there is only one grid cell, but there could be another later)
+polygon_sf = polygon_sf %>% # add grid ID
+  mutate(grid_id = 1:length(lengths(polygon_sfc)))
 
 # create vessel tracks for each fileid
 tracks <- tmpdat_sf %>% 
@@ -57,33 +67,21 @@ tracks <- tmpdat_sf %>%
   #st_geometry() #%>% 
   st_cast("MULTILINESTRING")
 
+#create the map showing all surveys
+survey_map = mapview(tracks, color = "red", lwd = 0.5, alpha = 1, popup = NULL) +
+  #mapview(tmpdat_sf, color = "blue", cex = 2, alpha = .2, popup = NULL) +
+  mapview(polygon_sf)
+survey_map  #plot the survey map
+
+################################################################################
+
 # determine which fileid tracks intersect the polygon
 #   create logical array identifying fileids that do/don't have effort within the unionized polygon
 #   specify 'sparse = FALSE' to return a logical array
 tracks$intersection <- st_intersects(polygon_sfc, tracks, sparse = FALSE)[1,]
 
-# list of fileids that intersect the unionized polygon
+# store a character vector specifying fileids that intersect the polygon
 IN_fileids = tracks$fileid[tracks$intersection]
-
-# discard fileids that do not intersect the polygon
-tmpdat_sf <- tmpdat_sf %>%
-  filter(fileid %in% IN_fileids)
-
-#rm(tracks, IN_fileids)
-
-#create the survey map
-survey_map = mapview(tracks, color = "red", lwd = 4, alpha = 1, popup = NULL) +
-  #mapview(tmpdat_sf, color = "blue", cex = 2, alpha = .2, popup = NULL) +
-  mapview(polygon_sf)
-survey_map  #plot the survey map
-
-# add grid ID to polygon_sf (there is only one grid cell, but there could be another later)
-polygon_sf = polygon_sf %>% # add grid ID
-  mutate(grid_id = 1:length(lengths(polygon_sfc)))
-
-#number of cells in the grid
-num_cells = dim(polygon_sf)[1]
-print(num_cells)
 
 # now that you have the grid set up, you should be able to create a new column in
 # tmpdat_sf for grid_id and label all the rows for each grid cell this may help 
@@ -93,21 +91,45 @@ grid_id_list = st_intersects(polygon_sf, tmpdat_sf) #[i THINK] these are all row
 for (ii in 1:num_cells){ #for each grid cell, insert the number of the grid cell in the correct row of tmpdat_ssf_season_survey
   tmpdat_sf$grid_id[grid_id_list[[ii]]] = ii
 }
-unique(tmpdat_sf$grid_id)
-rm(ii)
+# unique values in $grid_id should be only NA and 1
 
-# count number of surveys in each season
-# the maximum number of surveys within each season is required for looping
-# select within or across years season number
-if (ssn_type == "within"){
-  ssn = ssn_no
-} else if (ssn_type == "across"){
-  ssn = unique(ssn_no_grpd)
+# DOUBLE CHECK THAT ALL FILEIDS INTERSECT THE POLYGON
+# test for fileids identified in IN_fileids have some effort in the polygon
+# that is, that grid_id == 1 for at least one record.
+# if there are any fileids that have NA for every entry (and 2015-05-22 was one), 
+# then those need to be discarded
+bad_fids = NA # store fileids that do not intersect the polygon in this vector
+ctr = 0 # counter for bad fileids
+for (ii in 1:length(IN_fileids)){
+  
+  # create tmp array for testing
+  a <- tmpdat_sf |> filter(fileid == IN_fileids[ii])
+  
+  # if length is == 2, then we know we have NA and 1, since those are the only possible values 
+  if (length(unique(a$grid_id)) == 2){
+    print('all good')
+    next
+    
+  # else if length == 1 and all of them are NA, then we have a problem and must remove this fileid from IN_fileids
+  } else if ((length(unique(a$grid_id)) == 1) & (is.na(unique(a$grid_id)))){
+    print(paste0(IN_fileids[ii], " has no records inside the polygon")) # print the non-intersecting fileid
+    ctr = ctr + 1 # advance the counter
+    bad_fids[ctr] = ii # add position ii to bad_fids vector
+  }
 }
-ssn
 
+# remove non-intersecting fileids
+IN_fileids <- IN_fileids[-bad_fids]
+
+# finally, exclude non-interesecting fileids from tmpdat_sf
+tmpdat_sf <- tmpdat_sf %>%
+  filter(fileid %in% IN_fileids)
+
+################################################################################
+
+# find maximum number of surveys within each season
 num_survs = tibble(
-  ssn,
+  ssn, #ssn is a vector specifying season numbers
   num = NA)
 for (i in 1:num_ssn){
   if (ssn_type == "within"){
@@ -140,12 +162,10 @@ bft_list = vector("list", num_ssn) #holds beafort sea state for each survey and 
 spp = unique(dat$SPCODE[!is.na(dat$SPCODE)]) #need array for each species in each year (primary period)
 spp = "RIWH" #reduce to RIWH for simplicity
 num_spp = length(spp)
-print(num_spp)
 
 # this 'spp3d' will be a template to be copied and values stored in it for each species.
 # values of these matrices will be populated later
 spp3d = array(dim = c(num_cells, max_survs+1, num_ssn)) #create this and copy/rename for species in this loop, and copy to detection covariates below this loop
-
 # loop about species to create matrices for use in jags code
 for (j in 1:num_spp){
   print(spp[j])
@@ -160,8 +180,8 @@ effort3d = spp3d #effort from linestrings
 jday3d = spp3d 
 bft3d = spp3d 
 
-## FILL DETECTION COVARAIATE LIST OBJECTS AND 3D ARRAYS
-#loop about season [i], then loop about survey [j], the loop about grid cell
+## FILL DETECTION COVARAIATE LIST OBJECTS AND 3D ARRAYS, THEN FILL SPECIES ARRAYS
+#loop about season [i], then loop about survey [j], the loop about grid cell [k]
 for (i in 1:num_ssn){
   
   # isolate season
@@ -207,16 +227,6 @@ for (i in 1:num_ssn){
     # the indices returned are used to compute mean/mode/etc of beaufort sea state within each cell
     tmpdat_sf_season_survey_grid = st_intersects(polygon_sf, tmpdat_sf_season_survey)
 
-    # calculate effort using linestrings
-    # this chunk of code converts rows of tmpdat_sf_season_survey into a linestring, 
-    # but within each fileid. the result is an sfc object
-    # nereid_tracks <- tmpdat_sf_season_survey %>% 
-    #   #group_by(fileid) %>% # this is not necessary since you are working with a tmpdat file that only has one fileid
-    #   arrange(fileid, EVENT_NUMBER) %>% # put it in order
-    #   summarise(do_union = FALSE) %>%  #if you don't do this, it returns one row for each row of tmpdat_sf (your original thing)
-    #   #st_geometry() %>% #this seems unnecessary
-    #   st_cast("LINESTRING")
-    
     survey_tracks <- tmpdat_sf_season_survey %>% 
       group_by(on.effort.id) %>% # on/off effort
       arrange(fileid, EVENT_NUMBER) %>% # put it in order
