@@ -11,7 +11,7 @@ library(googledrive)
 library(lubridate)
 
 #make_figs = 'no' #'yes' 
-make_figs = 'no'
+make_figs = 'yes'
 
 ssn_type = "within" # within year seasons
 ssn_type = "across" # across year seasons, e.g. for climatologies
@@ -24,8 +24,8 @@ fn = '2000-2024 NEFSC Data.csv'
 
 ## inputs
 #years
-begYEAR = 2015
-endYEAR = 2023
+begYEAR = 2000
+endYEAR = 2000
 #months
 begMONTH = 1
 endMONTH = 12
@@ -98,3 +98,6 @@ dat <- read_csv(file = "2000-2024 NEFSC Data.csv",
 )
 setwd(paste0(curr_dir))
 
+# LEGTYPE LEGSTAGE COMBOS
+a = distinct(select(dat,LEGTYPE,LEGSTAGE))
+print(a)
