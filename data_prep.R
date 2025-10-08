@@ -31,11 +31,14 @@ length(unique(dat$fileid))
 # create seasons matrix
 source('makeSeasons.R')
 season <- makeSeasons(begYEAR,endYEAR,ssn_beg,ssn_end)
-ssn_beg_date <- as.Date(paste(season[,1],season[,2],season[,3],sep="-"),"%Y-%m-%d")
-ssn_end_date <- as.Date(paste(season[,1],season[,4],season[,5],sep="-"),"%Y-%m-%d")
+#ssn_beg_date <- as.Date(paste(season[,1],season[,2],season[,3],sep="-"),"%Y-%m-%d")
+#ssn_end_date <- as.Date(paste(season[,1],season[,4],season[,5],sep="-"),"%Y-%m-%d")
+ssn_beg_date <- ymd_hms(paste(season[,1], season[,2], season[,3], "T00", "00", "00",sep="-"), tz = "EST")
+ssn_end_date <- ymd_hms(paste(season[,1], season[,4], season[,5], "T23", "59", "59", sep="-"), tz = "EST")
 ssn_no = season$SSN_NO
 ssn_no_grpd = season$SSN_GRPD_NO # grouped season numbers will repeat, and we only want one set of them, so we use 'unique'
 
+                        
 # select within or across years season number, if this were not specified, the wrong number of seasons would be used and that causes problems
 if (ssn_type == "within"){
   ssn = ssn_no
