@@ -47,7 +47,7 @@ polygon_matrix = cbind(
 polygon_sfc = st_sfc(st_polygon(list(polygon_matrix))) #create sfc object
 st_crs(polygon_sfc) = "EPSG:4326" #insert crs
 polygon_sf = st_sf(polygon_sfc)
-mapview(polygon_sf)
+#mapview(polygon_sf)
 
 #number of cells in the 'grid', for a single polygon this number will be = 1
 num_cells = dim(polygon_sf)[1]
@@ -67,11 +67,11 @@ tracks <- tmpdat_sf %>%
   #st_geometry() #%>% 
   st_cast("MULTILINESTRING")
 
-#create the map showing all surveys
-survey_map = mapview(tracks, color = "red", lwd = 0.5, alpha = 1, popup = NULL) +
-  #mapview(tmpdat_sf, color = "blue", cex = 2, alpha = .2, popup = NULL) +
-  mapview(polygon_sf)
-survey_map  #plot the survey map
+# #create the map showing all surveys
+# survey_map = mapview(tracks, color = "red", lwd = 0.5, alpha = 1, popup = NULL) +
+#   #mapview(tmpdat_sf, color = "blue", cex = 2, alpha = .2, popup = NULL) +
+#   mapview(polygon_sf)
+# survey_map  #plot the survey map
 
 ################################################################################
 
@@ -118,8 +118,13 @@ for (ii in 1:length(IN_fileids)){
   }
 }
 
-# remove non-intersecting fileids
-IN_fileids <- IN_fileids[-bad_fids]
+# if bad_fids consists of only one NA, that means all fileids were good (grid_ids were all = 1)
+# in that case you do not want to do IN_fileids[-bad_fids] because it will eliminate all surveys
+# run this if statement to avoid that situation
+if (!is.na(bad_fids)){
+  # remove non-intersecting fileids
+  IN_fileids <- IN_fileids[-bad_fids]
+}
 
 # finally, exclude non-interesecting fileids from tmpdat_sf
 tmpdat_sf <- tmpdat_sf %>%
@@ -433,5 +438,5 @@ ts = data.frame(
   ssn,
   spue = SPUE
 )
-plot(ts)
+#plot(ts)
 lines(ts)
