@@ -9,9 +9,10 @@ dat$jday <- yday(dat$datetime_et)
 # keep only desired years and months (based on US/Eastern tz)
 dat <- dat %>%
   filter(YEAR_ET >= begYEAR & YEAR_ET <= endYEAR)
-#dat <- dat %>%
-#  filter(MONTH_ET >= begMONTH | MONTH_ET <= endMONTH)
+dat <- dat %>%
+  filter(MONTH_ET >= begMONTH | MONTH_ET <= endMONTH)
 unique(dat$YEAR_ET)
+unique(dat$MONTH_ET)
 
 # create survey identifier/fileid
 dat <- dat %>%
@@ -19,13 +20,13 @@ dat <- dat %>%
 # number of unique dates
 length(unique(dat$fileid))
 
-# how many dates with >1 plane?
-multi_plane <-  dat %>%
-  group_by(YMD) %>%
-  summarize(n_planes = n_distinct(PLANE)) %>%
-  filter(n_planes > 1)
-# number of days with > 1 plane
-dim(multi_plane)[1]
+# # how many dates with >1 plane?
+# multi_plane <-  dat %>%
+#   group_by(YMD) %>%
+#   summarize(n_planes = n_distinct(PLANE)) %>%
+#   filter(n_planes > 1)
+# # number of days with > 1 plane
+# dim(multi_plane)[1]
 
 # create seasons matrix
 source('makeSeasons.R')
@@ -35,10 +36,12 @@ ssn_end_date <- as.Date(paste(season[,1],season[,4],season[,5],sep="-"),"%Y-%m-%
 ssn_no = season$SSN_NO
 ssn_no_grpd = season$SSN_GRPD_NO # grouped season numbers will repeat, and we only want one set of them, so we use 'unique'
 
-# select within or across years season number
+# select within or across years season number, if this were not specified, the wrong number of seasons would be used and that causes problems
 if (ssn_type == "within"){
+  ssn = ssn_no
   num_ssn = max(ssn_no)  
 } else if (ssn_type == "across"){
+  ssn = unique(ssn_no_grpd)
   num_ssn = max(ssn_no_grpd)
 }
 
@@ -54,19 +57,24 @@ for (i in 1:length(ssn_beg_date)){
 # truncate BEAUFORT because it is not in whole numbers
 dat$beaufort <- floor(dat$BEAUFORT)
 
+# OPTION: make everything ON effort, comment out ON effort conditions below
+# dat <- dat %>%
+#   mutate(on.off.eff = 1)
+
 dat <- dat %>%
-  mutate(on.off.eff = if_else((beaufort <= 3 & 
+  mutate(on.off.eff = if_else((beaufort <= 5 &
                                  (
                                  (LEGTYPE == 3  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
                                  (LEGTYPE == 4  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
                                  (LEGTYPE == 6  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
+                                 (LEGTYPE == 7  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
                                  (LEGTYPE == 8  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
                                  (LEGTYPE == 9  & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
                                  (LEGTYPE == 10 & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
                                  (LEGTYPE == 11 & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5)) |
                                  (LEGTYPE == 12 & (LEGSTAGE == 1 | LEGSTAGE == 3 | LEGSTAGE == 4 | LEGSTAGE == 5))
                                  )
-                               & 
+                               &
                                  #(VISIBILTY_NM >= 4) & # sometimes there was no viz recorded
                                  (ID_RELIABILITY == 3 | is.na(ID_RELIABILITY))
   ),
@@ -74,6 +82,10 @@ dat <- dat %>%
   #now replace all NA with 0 because those are off-effort
   mutate(on.off.eff = ifelse(is.na(on.off.eff), 0, on.off.eff)
   )
+
+# LEGTYPE LEGSTAGE COMBOS
+a = distinct(select(dat,LEGTYPE,LEGSTAGE))
+print(a)
 
 # create unique identifier for continuous segments of on-effort
 # use cumsum(abs(diff())) to create continuous numbers based upon on.off.eff
@@ -99,9 +111,6 @@ tmpdat <- dat %>%
   dplyr::select(all_of(keep.cols)) #%>%
 rm(keep.cols)
 
-# LEGTYPE LEGSTAGE COMBOS
-a = distinct(select(tmpdat,LEGTYPE,LEGSTAGE))
-print(a)
 
 #write.csv(dat, file = "dat_with_dist.csv")
 #write.csv(tmpdat, file = "tmpdat.csv")
