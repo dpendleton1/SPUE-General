@@ -19,23 +19,45 @@ rm(locs, locs_pts, locs_sfc) # clean up environment
 #   lat = c(44.82, 44.78, 44.67, 44.55, 44.48, 44.48, 44.70, 44.82)
 # )
 
-# GSC centered region - kinda large box
+# # GSC centered region - kinda large box
 # polygon_matrix = cbind(
 #   lon = c(-73, -73, -66, -66, -73),
 #   lat = c( 39,  43,  43,  39,  39)
 # )
 
-# GOM and GSL - big box
-# polygon_matrix = cbind(
-#   lon = c(-73, -73, -55, -55, -73),
-#   lat = c( 39,  52,  52,  39,  39)
-# )
+# https://www.fisheries.noaa.gov/national/endangered-species-conservation/reducing-vessel-strikes-north-atlantic-right-whales
+# Great South Channel, April 1–July 31
+# Waters Bounded by:
+# 42º30'N, 069º45'W
+# 42º30'N, 067º27'W
+# 42º09'N, 067º08'24"W
+# 41º00'N, 069º05'W
+# 41º40'N, 069º45'W then back to starting point.
+# 42º30'N, 069º45'W
+polygon_matrix = cbind(
+  lon = c(-69.75, -67.45, -66.533, -67.083, -69.75, -69.75),
+  lat = c( 42.50,  42.50,  42.150,  41.000,  41.67,  42.50)
+)
 
 # GSC critical habitat
-polygon_matrix = cbind(
-  lon = c(-69.75, -68.5167, -68.2167, -69.0833, -69.75),
-  lat = c( 41.667,  42.167,  41.633,  41.000,  41.667)
-)
+# polygon_matrix = cbind(
+#   lon = c(-69.75, -68.5167, -68.2167, -69.0833, -69.75),
+#   lat = c( 41.667,  42.167,  41.633,  41.000,  41.667)
+# )
+
+
+# GOM and GSL - big box
+# polygon_matrix = cbind(
+#  lon = c(-73, -73, -55, -55, -73),
+#  lat = c( 39,  52,  52,  39,  39)
+# )
+
+# # super big box that should contain all the range of the surveys
+# polygon_matrix = cbind(
+#   lon = c(-80, -80, -55, -55, -80),
+#   lat = c( 31,  52,  52,  31,  31)
+# )
+
 
 ## I DON'T NEED THIS HERE FOR THIS EXERCISE
 # ## CREATE A GRID WITH SPATIAL INFORMATION AND GRID_IDS
@@ -47,7 +69,7 @@ polygon_matrix = cbind(
 polygon_sfc = st_sfc(st_polygon(list(polygon_matrix))) #create sfc object
 st_crs(polygon_sfc) = "EPSG:4326" #insert crs
 polygon_sf = st_sf(polygon_sfc)
-#mapview(polygon_sf)
+mapview(polygon_sf)
 
 #number of cells in the 'grid', for a single polygon this number will be = 1
 num_cells = dim(polygon_sf)[1]
@@ -67,21 +89,13 @@ tracks <- tmpdat_sf %>%
   #st_geometry() #%>% 
   st_cast("MULTILINESTRING")
 
-# #create the map showing all surveys
-# survey_map = mapview(tracks, color = "red", lwd = 0.5, alpha = 1, popup = NULL) +
-#   #mapview(tmpdat_sf, color = "blue", cex = 2, alpha = .2, popup = NULL) +
-#   mapview(polygon_sf)
+#create the map showing all surveys
+survey_map = mapview(tracks, color = "red", lwd = 0.5, alpha = 1, popup = NULL) +
+  #mapview(tmpdat_sf, color = "blue", cex = 2, alpha = .2, popup = NULL) +
+  mapview(polygon_sf, legend = FALSE)
 # survey_map  #plot the survey map
 
 ################################################################################
-
-# determine which fileid tracks intersect the polygon
-#   create logical array identifying fileids that do/don't have effort within the unionized polygon
-#   specify 'sparse = FALSE' to return a logical array
-tracks$intersection <- st_intersects(polygon_sfc, tracks, sparse = FALSE)[1,]
-
-# store a character vector specifying fileids that intersect the polygon
-IN_fileids = tracks$fileid[tracks$intersection]
 
 # now that you have the grid set up, you should be able to create a new column in
 # tmpdat_sf for grid_id and label all the rows for each grid cell this may help 
@@ -91,44 +105,61 @@ grid_id_list = st_intersects(polygon_sf, tmpdat_sf) #[i THINK] these are all row
 for (ii in 1:num_cells){ #for each grid cell, insert the number of the grid cell in the correct row of tmpdat_ssf_season_survey
   tmpdat_sf$grid_id[grid_id_list[[ii]]] = ii
 }
+unique(tmpdat_sf$grid_id)
 # unique values in $grid_id should be only NA and 1
 
-# DOUBLE CHECK THAT ALL FILEIDS INTERSECT THE POLYGON
-# test for fileids identified in IN_fileids have some effort in the polygon
-# that is, that grid_id == 1 for at least one record.
-# if there are any fileids that have NA for every entry (and 2015-05-22 was one), 
-# then those need to be discarded
-bad_fids = NA # store fileids that do not intersect the polygon in this vector
-ctr = 0 # counter for bad fileids
-for (ii in 1:length(IN_fileids)){
-  
-  # create tmp array for testing
-  a <- tmpdat_sf |> filter(fileid == IN_fileids[ii])
-  
-  # if length is == 2, then we know we have NA and 1, since those are the only possible values 
-  if (length(unique(a$grid_id)) == 2){
-    print('all good')
-    next
-    
-  # else if length == 1 and all of them are NA, then we have a problem and must remove this fileid from IN_fileids
-  } else if ((length(unique(a$grid_id)) == 1) & (is.na(unique(a$grid_id)))){
-    print(paste0(IN_fileids[ii], " has no records inside the polygon")) # print the non-intersecting fileid
-    ctr = ctr + 1 # advance the counter
-    bad_fids[ctr] = ii # add position ii to bad_fids vector
-  }
-}
+# determine which fileid tracks intersect the polygon
+#   create logical array identifying fileids that do/don't have effort within the unionized polygon
+#   specify 'sparse = FALSE' to return a logical array
+tracks$intersection <- st_intersects(polygon_sfc, tracks, sparse = FALSE)[1,]
 
-# if bad_fids consists of only one NA, that means all fileids were good (grid_ids were all = 1)
-# in that case you do not want to do IN_fileids[-bad_fids] because it will eliminate all surveys
-# run this if statement to avoid that situation
-if (!is.na(bad_fids)){
-  # remove non-intersecting fileids
-  IN_fileids <- IN_fileids[-bad_fids]
-}
+# store a character vector specifying fileids that intersect the polygon
+IN_fileids = tracks$fileid[tracks$intersection]
 
-# finally, exclude non-interesecting fileids from tmpdat_sf
+# remove fileids that do not intersect
+dim(tmpdat_sf)
 tmpdat_sf <- tmpdat_sf %>%
   filter(fileid %in% IN_fileids)
+dim(tmpdat_sf)
+
+# # I SHOULD NOT NEED TO DO THIS, BUT UNCOMMENT IF PROBLEMS ARISE WITH SELECTED SURVEYS (IN_FILEIEDS) BEING OUTSIDE OF THE POLYGON / INCORRECTLY INTERSECTED
+# # DOUBLE CHECK THAT ALL FILEIDS INTERSECT THE POLYGON
+# # test for fileids identified in IN_fileids have some effort in the polygon
+# # that is, that grid_id == 1 for at least one record.
+# # if there are any fileids that have NA for every entry (and 2015-05-22 was one), 
+# # then those need to be discarded
+# bad_fids = NA # store fileids that do not intersect the polygon in this vector
+# ctr = 0 # counter for bad fileids
+# for (ii in 1:length(IN_fileids)){
+#   
+#   # create tmp array for testing
+#   a <- tmpdat_sf |> filter(fileid == IN_fileids[ii])
+#   
+#   # if length is == 2, then we know we have NA and 1, since those are the only possible values 
+#   if (length(unique(a$grid_id)) == 2){
+#     print('all good')
+#     next
+#     
+#   # else if length == 1 and all of them are NA, then we have a problem and must remove this fileid from IN_fileids
+#   } else if ((length(unique(a$grid_id)) == 1) & (is.na(unique(a$grid_id)))){
+#     print(paste0(IN_fileids[ii], " has no records inside the polygon")) # print the non-intersecting fileid
+#     ctr = ctr + 1 # advance the counter
+#     bad_fids[ctr] = ii # add position ii to bad_fids vector
+#   }
+# }
+# 
+# # if bad_fids consists of only one NA, that means all fileids were good (grid_ids were all = 1)
+# # in that case you do not want to do IN_fileids[-bad_fids] because it will eliminate all surveys
+# # run this if statement to avoid that situation
+# if (!is.na(bad_fids)){
+#   
+#   # remove non-intersecting fileids
+#   IN_fileids <- IN_fileids[-bad_fids]
+#   
+#   #exclude non-interesecting fileids from tmpdat_sf
+#   tmpdat_sf <- tmpdat_sf %>%
+#     filter(fileid %in% IN_fileids)
+# }
 
 ################################################################################
 
@@ -153,6 +184,7 @@ print(max_survs)
 # a <- st_drop_geometry(tmpdat_sf)
 # b <- distinct(select(a,YEAR_ET, season_grpd))
 # c <- distinct(select(a,YEAR_ET, season))
+# # if only one year is selected, then unique values in season and season_grpd will be identical
 
 ## CREATE DETECTION COVARIATE LISTS 
 # need to produce one effort grid for each season. here we construct lists to store these values. 
@@ -190,6 +222,7 @@ bft3d = spp3d
 for (i in 1:num_ssn){
   
   # isolate season
+  # if ssn_type = across, and there are multiple years, it will group years and plotting may be complicated due to survey tracks being lumped
   if (ssn_type == "within"){
     tmpdat_sf_season = tmpdat_sf |> filter(season == i)
   } else if (ssn_type == "across"){
@@ -200,6 +233,7 @@ for (i in 1:num_ssn){
   # look at num_survs to see how many surveys are in each season. if there are zero surveys in a season,
   # then the condition below will be true, and that season will be skipped by using the 'next' command:
   if (dim(tmpdat_sf_season)[1] == 0){
+    print(paste("no data in this season i=", i, " moving to next season", sep=""))
     next
   }
   
@@ -233,7 +267,7 @@ for (i in 1:num_ssn){
     tmpdat_sf_season_survey_grid = st_intersects(polygon_sf, tmpdat_sf_season_survey)
 
     survey_tracks <- tmpdat_sf_season_survey %>% 
-      group_by(on.effort.id) %>% # on/off effort
+      group_by(on.effort.id) %>% # on/off effort, note that there should only be one FILEID at this point
       arrange(fileid, EVENT_NUMBER) %>% # put it in order
       summarise(do_union = FALSE) %>%  #if you don't do this, it returns one row for each row of tmpdat_sf (your original thing)
       #st_geometry() %>% #this seems unnecessary
@@ -254,7 +288,9 @@ for (i in 1:num_ssn){
         mapview(polygon_sf)
       survey_map  #plot the survey map
       #write and view map as html file
-      html_fl = paste0(curr_dir, "/figs/", unique(tmpdat_sf_season$YEAR_ET), "_ssn", i, "_surv", j, "_", season_ufids[j], ".html")
+
+      html_fl = paste0(curr_dir, "/figs/", unique(tmpdat_sf_season_survey$YEAR_ET), "_ssn", i, "_surv", j, "_", season_ufids[j], ".html")
+      print(html_fl)
       mapshot(survey_map, url = html_fl) #save the map
       #browseURL(html_fl) #open the map in a web browser
     }
@@ -268,7 +304,7 @@ for (i in 1:num_ssn){
       mutate(total_length = st_length(.)) %>%
       mutate(total_length_km = as.numeric(total_length)*0.001) %>% #changes length from [m] to <dbl> and converts from meters to kilometers
       group_by(grid_id)
-    plot(intersection$polygon_sfc)
+    #plot(intersection$polygon_sfc)
     
     # join the 'intersection' with grid_id. this creates a matrix with the same order as all the others (e.g. 'effort').
     effort_joined <- polygon_sf %>% 
@@ -439,4 +475,4 @@ ts = data.frame(
   spue = SPUE
 )
 #plot(ts)
-lines(ts)
+#lines(ts)
