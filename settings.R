@@ -10,11 +10,12 @@ library(tmap)
 library(googledrive)
 library(lubridate)
 
-#make_figs = 'no' #'yes' 
-make_figs = 'yes'
+# make_figs = 'no' #'yes' 
+# make_figs = 'yes'
+make_figs = 'no'
 
 ssn_type = "within" # within year seasons
-ssn_type = "across" # across year seasons, e.g. for climatologies
+# ssn_type = "across" # across year seasons, e.g. for climatologies
 
 #find current directory, setwd to current directory
 curr_dir <- dirname(rstudioapi::getSourceEditorContext()$path)
@@ -25,7 +26,7 @@ fn = '2000-2024 NEFSC Data.csv'
 ## inputs
 #years
 begYEAR = 2000
-endYEAR = 2000
+endYEAR = 2006
 #months
 begMONTH = 1
 endMONTH = 12
@@ -97,6 +98,12 @@ dat <- read_csv(file = "2000-2024 NEFSC Data.csv",
                 )
 )
 setwd(paste0(curr_dir))
+
+# REMOVE RECORDS WITH LAT/LONG = 0
+dim(dat)[1]
+dat <- dat %>%
+  filter(LATITUDE != 0 | LONGITUDE != 0)
+dim(dat)[1]
 
 # LEGTYPE LEGSTAGE COMBOS
 a = distinct(select(dat,LEGTYPE,LEGSTAGE))
